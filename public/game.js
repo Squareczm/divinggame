@@ -867,7 +867,7 @@ async function generateShareCard() {
   if (btn) { btn.textContent = '生成中...'; btn.disabled = true; }
 
   try {
-    const W = 1080, H = 1440;
+    const W = 1080, H = 2100;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
@@ -877,234 +877,315 @@ async function generateShareCard() {
     const r = CERTS[state.cert];
     const badge = computeDiverBadge(state);
     const facts = computeFunFacts(state).map(s => s.replace(/<\/?b>/g, ''));
+    const achievements = computeAchievements(state);
     const sanFont = '"PingFang SC","Microsoft YaHei","SimHei","Hiragino Sans GB",sans-serif';
     const monoFont = '"Silkscreen","Press Start 2P","Courier New",monospace';
+    const M = 56; // 外边距
 
     // ===== 背景 =====
-    const bg = ctx.createRadialGradient(W/2, 260, 0, W/2, H/2, H * 0.9);
-    bg.addColorStop(0,   '#122e48');
-    bg.addColorStop(0.5, '#0a1b2e');
-    bg.addColorStop(1,   '#03080f');
+    const bg = ctx.createRadialGradient(W/2, 380, 0, W/2, H/2, H * 0.85);
+    bg.addColorStop(0, '#122e48');
+    bg.addColorStop(0.4, '#0a1b2e');
+    bg.addColorStop(1, '#020609');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
     // 细网格
-    ctx.fillStyle = 'rgba(245,196,107,0.028)';
+    ctx.fillStyle = 'rgba(245,196,107,0.03)';
     for (let x = 0; x < W; x += 20) ctx.fillRect(x, 0, 1, H);
     for (let y = 0; y < H; y += 20) ctx.fillRect(0, y, W, 1);
 
-    // 顶部金光 + 底部金光
-    const tgl = ctx.createLinearGradient(0, 0, 0, 240);
-    tgl.addColorStop(0, 'rgba(245,196,107,0.15)');
-    tgl.addColorStop(1, 'transparent');
-    ctx.fillStyle = tgl;
-    ctx.fillRect(0, 0, W, 240);
-    const bgl = ctx.createLinearGradient(0, H - 200, 0, H);
-    bgl.addColorStop(0, 'transparent');
-    bgl.addColorStop(1, 'rgba(128,212,192,0.08)');
-    ctx.fillStyle = bgl;
-    ctx.fillRect(0, H - 200, W, 200);
+    // 背景像素气泡点缀（确定性分布）
+    const rng = mulberry32(7919);
+    for (let i = 0; i < 70; i++) {
+      const bx = Math.floor(rng() * W);
+      const by = Math.floor(rng() * H);
+      const sz = 2 + Math.floor(rng() * 4);
+      ctx.fillStyle = `rgba(230,238,245,${0.18 + rng() * 0.22})`;
+      ctx.fillRect(bx, by, sz, sz);
+    }
 
-    // ===== 像素边框 =====
-    function pxFrame(x, y, w, h, c1, c2, th=8) {
+    // 顶/底金光
+    const tgl = ctx.createLinearGradient(0, 0, 0, 280);
+    tgl.addColorStop(0, 'rgba(245,196,107,0.18)');
+    tgl.addColorStop(1, 'transparent');
+    ctx.fillStyle = tgl; ctx.fillRect(0, 0, W, 280);
+    const bgl = ctx.createLinearGradient(0, H - 280, 0, H);
+    bgl.addColorStop(0, 'transparent');
+    bgl.addColorStop(1, 'rgba(128,212,192,0.12)');
+    ctx.fillStyle = bgl; ctx.fillRect(0, H - 280, W, 280);
+
+    // ===== 像素边框（双层）=====
+    function pxFrame(x, y, w, h, c1, c2, th=10) {
       ctx.fillStyle = c1;
       ctx.fillRect(x, y, w, th); ctx.fillRect(x, y, th, h);
-      ctx.fillRect(x + w - th, y, th, h); ctx.fillRect(x, y + h - th, w, th);
+      ctx.fillRect(x+w-th, y, th, h); ctx.fillRect(x, y+h-th, w, th);
       ctx.fillStyle = c2;
-      ctx.fillRect(x + th, y + th, w - th*2, 3);
-      ctx.fillRect(x + th, y + th, 3, h - th*2);
-      ctx.fillRect(x + w - th - 3, y + th, 3, h - th*2);
-      ctx.fillRect(x + th, y + h - th - 3, w - th*2, 3);
+      ctx.fillRect(x+th, y+th, w-th*2, 3);
+      ctx.fillRect(x+th, y+th, 3, h-th*2);
+      ctx.fillRect(x+w-th-3, y+th, 3, h-th*2);
+      ctx.fillRect(x+th, y+h-th-3, w-th*2, 3);
     }
-    pxFrame(32, 32, W - 64, H - 64, '#f5c46b', '#a67d3c', 10);
-    pxFrame(58, 58, W - 116, H - 116, '#2b4a6e', '#0a1628', 4);
+    pxFrame(36, 36, W-72, H-72, '#f5c46b', '#a67d3c', 10);
+    pxFrame(62, 62, W-124, H-124, '#2b4a6e', '#0a1628', 4);
 
-    // 四角装饰
-    [[56,56],[W-72,56],[56,H-72],[W-72,H-72]].forEach(([x,y])=>{
+    // 四角星饰
+    [[56,56],[W-72,56],[56,H-72],[W-72,H-72]].forEach(([x,y]) => {
       ctx.fillStyle = '#f5c46b'; ctx.fillRect(x, y, 16, 16);
       ctx.fillStyle = '#ffd485'; ctx.fillRect(x+3, y+3, 4, 4);
+      ctx.fillRect(x+9, y+9, 3, 3);
     });
+
+    // 顶/底 波浪像素装饰
+    ctx.fillStyle = '#f5c46b';
+    for (let x = 180, i = 0; x < W - 180; x += 32, i++) {
+      const yy = 190 + (i % 2 === 0 ? 0 : 6);
+      ctx.fillRect(x, yy, 22, 2);
+      ctx.fillRect(x + 5, yy + 3, 12, 2);
+    }
+    for (let x = 180, i = 0; x < W - 180; x += 32, i++) {
+      const yy = H - 210 + (i % 2 === 0 ? 0 : 6);
+      ctx.fillRect(x, yy, 22, 2);
+      ctx.fillRect(x + 5, yy + 3, 12, 2);
+    }
 
     // ===== 顶部品牌 =====
     ctx.textAlign = 'center';
     ctx.fillStyle = '#f5c46b';
-    ctx.font = 'bold 24px ' + monoFont;
-    ctx.fillText('OCEANLOG · DC-2026 · DIVER LICENSE', W/2, 108);
+    ctx.font = 'bold 26px ' + monoFont;
+    ctx.fillText('OCEANLOG · DC-2026 · DIVER LICENSE', W/2, 118);
 
     ctx.fillStyle = '#7a8ea8';
     ctx.font = '15px ' + monoFont;
-    ctx.fillText('CN  ·  CYAN DIVE COMPUTER  ·  OFFICIAL RECORD', W/2, 135);
+    ctx.fillText('CN  ·  CYAN DIVE COMPUTER  ·  OFFICIAL RECORD', W/2, 148);
 
-    // 分隔
+    // 点状分隔
     ctx.fillStyle = '#8a6a32';
-    for (let x = 180; x < W - 180; x += 22) ctx.fillRect(x, 158, 10, 3);
+    for (let x = 200; x < W - 200; x += 22) ctx.fillRect(x, 170, 10, 3);
 
     // ===== 主标题 =====
     ctx.fillStyle = '#ffd485';
-    ctx.font = 'bold 82px ' + sanFont;
+    ctx.font = 'bold 88px ' + sanFont;
     ctx.shadowColor = 'rgba(245,196,107,0.6)';
-    ctx.shadowBlur = 22;
-    ctx.fillText('深 潜 模 拟 器', W/2, 230);
+    ctx.shadowBlur = 24;
+    ctx.fillText('深 潜 模 拟 器', W/2, 255);
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#a3b8cc';
-    ctx.font = 'bold 20px ' + monoFont;
-    ctx.fillText('DEEP  DIVER  SIMULATOR', W/2, 268);
+    ctx.font = 'bold 22px ' + monoFont;
+    ctx.fillText('DEEP  DIVER  SIMULATOR', W/2, 298);
 
-    // ===== 潜水员 + 角落装饰 =====
-    const diverSvg = PIXELS.diver
-      .replace(/width="44"/, 'width="220"')
-      .replace(/height="48"/, 'height="240"');
-    try {
-      const diverImg = await loadImage(svgToDataUrl(diverSvg));
-      ctx.drawImage(diverImg, W/2 - 110, 310, 220, 240);
-    } catch (e) {}
-
+    // ===== 潜水员 + 海洋生物点缀 =====
+    const diverSvg = PIXELS.diver.replace(/width="44"/, 'width="240"').replace(/height="48"/, 'height="262"');
+    try { const img = await loadImage(svgToDataUrl(diverSvg)); ctx.drawImage(img, W/2 - 120, 345, 240, 262); } catch (e) {}
     try {
       const coralImg = await loadImage(svgToDataUrl(
-        PIXELS.coral.replace(/width="64"/, 'width="160"').replace(/height="32"/, 'height="80"')));
-      ctx.drawImage(coralImg, 90, 470, 160, 80);
+        PIXELS.coral.replace(/width="64"/, 'width="170"').replace(/height="32"/, 'height="86"')));
+      ctx.drawImage(coralImg, 80, 515, 170, 86);
     } catch (e) {}
     try {
       const fishImg = await loadImage(svgToDataUrl(
-        PIXELS.fish_school.replace(/width="80"/, 'width="200"').replace(/height="32"/, 'height="80"')));
-      ctx.drawImage(fishImg, W - 290, 320, 200, 80);
+        PIXELS.fish_school.replace(/width="80"/, 'width="210"').replace(/height="32"/, 'height="86"')));
+      ctx.drawImage(fishImg, W - 290, 380, 210, 86);
+    } catch (e) {}
+    try {
+      const jellyImg = await loadImage(svgToDataUrl(
+        PIXELS.jelly.replace(/width="40"/, 'width="84"').replace(/height="44"/, 'height="92"')));
+      ctx.drawImage(jellyImg, W - 170, 520, 84, 92);
+    } catch (e) {}
+    try {
+      const bubImg = await loadImage(svgToDataUrl(
+        PIXELS.bubbleart.replace(/width="24"/, 'width="62"').replace(/height="32"/, 'height="82"')));
+      ctx.drawImage(bubImg, 70, 380, 62, 82);
     } catch (e) {}
 
     // ===== 结局大字 =====
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd485';
-    ctx.font = 'bold 72px ' + sanFont;
-    ctx.shadowColor = 'rgba(245,196,107,0.55)';
-    ctx.shadowBlur = 20;
-    ctx.fillText(ending.title, W/2, 635);
+    ctx.font = 'bold 82px ' + sanFont;
+    ctx.shadowColor = 'rgba(245,196,107,0.6)';
+    ctx.shadowBlur = 24;
+    ctx.fillText(ending.title, W/2, 715);
     ctx.shadowBlur = 0;
-
     ctx.fillStyle = '#a3b8cc';
-    ctx.font = '24px ' + sanFont;
-    const subtitle = ending.subtitle.replace(/&middot;/g, '·');
-    ctx.fillText(subtitle, W/2, 675);
+    ctx.font = '26px ' + sanFont;
+    ctx.fillText(ending.subtitle.replace(/&middot;/g, '·'), W/2, 760);
 
-    // ===== 姓名 =====
+    // 点状分隔
+    ctx.fillStyle = '#8a6a32';
+    for (let x = 260; x < W - 260; x += 22) ctx.fillRect(x, 790, 10, 3);
+
+    // ===== DIVER 姓名 =====
     ctx.fillStyle = '#ff9d5c';
-    ctx.font = 'bold 40px ' + sanFont;
-    ctx.fillText('DIVER · ' + (state.username || '匿名潜水员'), W/2, 745);
+    ctx.font = 'bold 46px ' + sanFont;
+    ctx.fillText('DIVER · ' + (state.username || '匿名潜水员'), W/2, 855);
 
-    // ===== 称号 徽章 pill =====
+    // ===== 称号 pill =====
     const badgeText = '★  ' + badge + '  ★';
-    ctx.font = 'bold 24px ' + sanFont;
-    const bw = Math.min(W - 160, ctx.measureText(badgeText).width + 80);
-    const bx = (W - bw) / 2, by = 765;
-    ctx.fillStyle = 'rgba(128,212,192,0.15)';
-    ctx.fillRect(bx, by, bw, 50);
+    ctx.font = 'bold 26px ' + sanFont;
+    const bw = Math.min(W - 180, ctx.measureText(badgeText).width + 100);
+    const bx = (W - bw) / 2;
+    const by = 880;
+    ctx.fillStyle = 'rgba(128,212,192,0.2)';
+    ctx.fillRect(bx, by, bw, 58);
     ctx.strokeStyle = '#80d4c0';
     ctx.lineWidth = 2;
-    ctx.strokeRect(bx, by, bw, 50);
-    // 四角 mini
+    ctx.strokeRect(bx, by, bw, 58);
     ctx.fillStyle = '#80d4c0';
-    [[bx,by],[bx+bw-6,by],[bx,by+44],[bx+bw-6,by+44]].forEach(([px,py])=>ctx.fillRect(px,py,6,6));
-    ctx.fillText(badgeText, W/2, by + 34);
+    [[bx,by],[bx+bw-6,by],[bx,by+52],[bx+bw-6,by+52]].forEach(([px,py]) => ctx.fillRect(px, py, 6, 6));
+    ctx.fillText(badgeText, W/2, by + 40);
 
     // 流派 · 证书
     ctx.fillStyle = '#a3b8cc';
-    ctx.font = '22px ' + sanFont;
-    ctx.fillText(`${ARCHETYPES[state.archetype].name}  ·  ${r.name}  ·  ${r.title}`, W/2, 850);
+    ctx.font = '24px ' + sanFont;
+    ctx.fillText(`${ARCHETYPES[state.archetype].name}  ·  ${r.name}  ·  ${r.title}`, W/2, 985);
 
     // ===== 数据网格 3×2 =====
     const stats = [
-      ['瓶数 · BOTTLES',  state.exp],
-      ['下潜 · DIVES',    state.day],
-      ['储蓄 · SAVINGS',  '$' + state.money],
-      ['口碑 · REP',      state.connections],
-      ['精力 · HP',       state.hp],
-      ['鲁莽 · WILD',     state.reckless],
+      ['瓶数 · BOTTLES', state.exp],
+      ['下潜 · DIVES',   state.day],
+      ['储蓄 · SAVINGS', '$' + state.money],
+      ['口碑 · REP',     state.connections],
+      ['精力 · HP',      state.hp],
+      ['鲁莽 · WILD',    state.reckless],
     ];
-    const gridCols = 3, cellW = 290, cellH = 75, gap = 12;
-    const gridX = (W - cellW * gridCols - gap * (gridCols - 1)) / 2;
-    const gridY = 885;
+    const gridCols = 3, cellW = 300, cellH = 82, gap = 14;
+    const gridX = (W - cellW*gridCols - gap*(gridCols-1)) / 2;
+    const gridY = 1025;
     stats.forEach((s, i) => {
       const col = i % gridCols, row = Math.floor(i / gridCols);
       const x = gridX + col * (cellW + gap);
       const y = gridY + row * (cellH + gap);
-      ctx.fillStyle = 'rgba(8,18,32,0.65)';
+      ctx.fillStyle = 'rgba(8,18,32,0.7)';
       ctx.fillRect(x, y, cellW, cellH);
       ctx.strokeStyle = '#f5c46b';
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, cellW, cellH);
       ctx.fillStyle = '#f5c46b';
-      [[x,y],[x+cellW-5,y],[x,y+cellH-5],[x+cellW-5,y+cellH-5]].forEach(([px,py])=>ctx.fillRect(px,py,5,5));
+      [[x,y],[x+cellW-5,y],[x,y+cellH-5],[x+cellW-5,y+cellH-5]].forEach(([px,py]) => ctx.fillRect(px,py,5,5));
       ctx.textAlign = 'left';
       ctx.fillStyle = '#7a8ea8';
-      ctx.font = '14px ' + monoFont;
-      ctx.fillText(s[0], x + 18, y + 26);
+      ctx.font = '15px ' + monoFont;
+      ctx.fillText(s[0], x + 18, y + 28);
       ctx.fillStyle = '#ffd485';
-      ctx.font = 'bold 34px ' + sanFont;
-      ctx.fillText(String(s[1]), x + 18, y + 60);
+      ctx.font = 'bold 40px ' + sanFont;
+      ctx.fillText(String(s[1]), x + 18, y + 70);
     });
+
+    let y = gridY + 2 * (cellH + gap) + 36;
 
     // ===== FUN FACTS =====
     ctx.textAlign = 'left';
     ctx.fillStyle = '#80d4c0';
-    ctx.font = 'bold 18px ' + monoFont;
-    ctx.fillText('- - -  FUN FACTS · 玄 学 数 据  - - -', gridX, 1075);
+    ctx.font = 'bold 20px ' + monoFont;
+    ctx.fillText('- - -  FUN FACTS · 玄 学 数 据  - - -', gridX, y);
+    y += 36;
     ctx.fillStyle = '#e6eef5';
-    ctx.font = '20px ' + sanFont;
-    let fy = 1105;
+    ctx.font = '22px ' + sanFont;
     facts.forEach(f => {
-      wrapText(ctx, '▸ ' + f, gridX, fy, W - gridX*2, 28);
-      fy += 54;
+      y = wrapTextReturn(ctx, '▸ ' + f, gridX, y, W - gridX*2, 32);
+      y += 12;
     });
 
-    // ===== Quip =====
-    if (ending.quip) {
-      ctx.fillStyle = '#f5c46b';
-      ctx.font = 'italic bold 24px ' + sanFont;
-      ctx.textAlign = 'center';
-      wrapText(ctx, '「 ' + ending.quip + ' 」', W/2, 1255, W - 240, 32);
+    // ===== 解锁徽章 =====
+    if (achievements.length > 0) {
+      y += 18;
+      ctx.fillStyle = '#b892d4';
+      ctx.font = 'bold 20px ' + monoFont;
+      ctx.fillText('- - -  ACHIEVEMENTS · 解 锁 徽 章  - - -', gridX, y);
+      y += 32;
+      ctx.font = 'bold 20px ' + sanFont;
+      let px = gridX;
+      const rowMaxX = gridX + (W - gridX*2);
+      achievements.forEach(a => {
+        const textW = ctx.measureText(a).width;
+        const pw = textW + 32;
+        const ph = 36;
+        if (px + pw > rowMaxX) { px = gridX; y += ph + 8; }
+        ctx.fillStyle = 'rgba(184,146,212,0.2)';
+        ctx.fillRect(px, y, pw, ph);
+        ctx.strokeStyle = '#b892d4';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px, y, pw, ph);
+        ctx.fillStyle = '#b892d4';
+        ctx.fillText(a, px + 16, y + 26);
+        px += pw + 10;
+      });
+      y += 36;
     }
 
-    // ===== QR + 扫码引导 =====
-    const qrSize = 180;
-    const qrX = W - qrSize - 90, qrY = H - qrSize - 98;
-    // 双层金框
+    // ===== 结局正文（外框 + 自动 wrap）=====
+    y += 24;
+    ctx.font = '23px ' + sanFont;
+    const proseMaxW = W - gridX*2 - 40;
+    const proseH = measureWrapHeight(ctx, ending.text, proseMaxW, 34);
+    const proseBoxH = proseH + 40;
+    ctx.fillStyle = 'rgba(245,196,107,0.06)';
+    ctx.fillRect(gridX, y, W - gridX*2, proseBoxH);
+    ctx.strokeStyle = 'rgba(245,196,107,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(gridX, y, W - gridX*2, proseBoxH);
     ctx.fillStyle = '#f5c46b';
-    ctx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
-    ctx.fillStyle = '#a67d3c';
-    ctx.fillRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
-    ctx.fillStyle = '#ffd485';
-    ctx.fillRect(qrX - 3, qrY - 3, qrSize + 6, qrSize + 6);
-    await drawQrCode(ctx, qrX, qrY, qrSize);
-    // QR 角金点
-    ctx.fillStyle = '#f5c46b';
-    [[qrX-10,qrY-10],[qrX+qrSize-2,qrY-10],[qrX-10,qrY+qrSize-2],[qrX+qrSize-2,qrY+qrSize-2]].forEach(([x,y])=>ctx.fillRect(x,y,12,12));
+    [[gridX,y],[gridX + W - gridX*2 - 8,y],[gridX,y + proseBoxH - 8],[gridX + W - gridX*2 - 8,y + proseBoxH - 8]].forEach(([px,py]) => ctx.fillRect(px, py, 8, 8));
+    ctx.fillStyle = '#e6eef5';
+    ctx.textAlign = 'left';
+    wrapTextReturn(ctx, ending.text, gridX + 20, y + 34, proseMaxW, 34);
+    y += proseBoxH + 26;
 
-    // 左下文字
+    // ===== 金句 =====
+    if (ending.quip) {
+      ctx.fillStyle = '#f5c46b';
+      ctx.font = 'italic bold 28px ' + sanFont;
+      ctx.textAlign = 'center';
+      y = wrapTextReturn(ctx, '「 ' + ending.quip + ' 」', W/2, y + 26, W - 240, 38);
+    }
+
+    // ===== QR 区 =====
+    const qrSize = 200;
+    const qrX = W - qrSize - 100, qrY = H - qrSize - 170;
+    // 三层金框
+    ctx.fillStyle = '#f5c46b'; ctx.fillRect(qrX - 12, qrY - 12, qrSize + 24, qrSize + 24);
+    ctx.fillStyle = '#a67d3c'; ctx.fillRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
+    ctx.fillStyle = '#ffd485'; ctx.fillRect(qrX - 3, qrY - 3, qrSize + 6, qrSize + 6);
+    await drawQrCode(ctx, qrX, qrY, qrSize);
+    // QR 四角金点
+    ctx.fillStyle = '#f5c46b';
+    [[qrX-12,qrY-12],[qrX+qrSize,qrY-12],[qrX-12,qrY+qrSize],[qrX+qrSize,qrY+qrSize]].forEach(([x,y]) => ctx.fillRect(x, y, 12, 12));
+
+    // 扫码区文字
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ffd485';
-    ctx.font = 'bold 34px ' + sanFont;
-    ctx.fillText('扫 码 下 水', 100, H - 180);
+    ctx.font = 'bold 42px ' + sanFont;
+    ctx.fillText('扫 码 下 水', 120, H - 280);
     ctx.fillStyle = '#a3b8cc';
-    ctx.font = '20px ' + sanFont;
-    ctx.fillText('你的潜水之旅从这里开始', 100, H - 148);
+    ctx.font = '24px ' + sanFont;
+    ctx.fillText('你的潜水之旅从这里开始', 120, H - 242);
     ctx.fillStyle = '#80d4c0';
-    ctx.font = 'bold 20px ' + monoFont;
-    ctx.fillText('divinggame.ainovalife.com', 100, H - 115);
+    ctx.font = 'bold 24px ' + monoFont;
+    ctx.fillText('divinggame.ainovalife.com', 120, H - 204);
+    ctx.fillStyle = '#7a8ea8';
+    ctx.font = '20px ' + sanFont;
+    ctx.fillText('呼吸是节奏 · 敬畏是修为', 120, H - 170);
+    ctx.fillStyle = '#7a8ea8';
+    ctx.font = '18px ' + sanFont;
+    ctx.fillText('一次性下潜，来一把就有自己的海', 120, H - 140);
 
     // 底部 baseline
     ctx.textAlign = 'center';
     ctx.fillStyle = '#5a7493';
-    ctx.font = '14px ' + monoFont;
-    ctx.fillText('DEEPDIVE.AINOVALIFE.COM  ·  DIVER-CARD v1.1', W/2, H - 76);
+    ctx.font = '16px ' + monoFont;
+    ctx.fillText('DEEPDIVE · AINOVALIFE · DIVER-CARD v2', W/2, H - 100);
 
-    // 开发预览模式：把 canvas 插入页面供截图
+    // 预览模式
     if (window.__testCardReturn) {
       document.body.innerHTML = '';
-      canvas.style.cssText = 'width:540px;height:auto;display:block;margin:0 auto;';
+      canvas.style.cssText = 'display:block;margin:0 auto;';
       document.body.appendChild(canvas);
       document.body.style.cssText = 'background:#000;margin:0;padding:0;';
       return;
     }
 
-    // ===== 下载 =====
+    // 下载
     const link = document.createElement('a');
     link.download = `deep_diver_${(state.username || 'anon').replace(/\s/g, '_')}_${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
@@ -1115,6 +1196,50 @@ async function generateShareCard() {
   } finally {
     if (btn) { btn.innerHTML = origBtn || '&#9733; 下载战绩图 &#9733;'; btn.disabled = false; }
   }
+}
+
+function wrapTextReturn(ctx, text, x, y, maxWidth, lineHeight) {
+  const chars = text.split('');
+  let line = '';
+  let yy = y;
+  for (let i = 0; i < chars.length; i++) {
+    const test = line + chars[i];
+    if (ctx.measureText(test).width > maxWidth && line.length > 0) {
+      ctx.fillText(line, x, yy);
+      line = chars[i];
+      yy += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) { ctx.fillText(line, x, yy); yy += lineHeight; }
+  return yy;
+}
+
+function measureWrapHeight(ctx, text, maxWidth, lineHeight) {
+  const chars = text.split('');
+  let line = '';
+  let lines = 1;
+  for (let i = 0; i < chars.length; i++) {
+    const test = line + chars[i];
+    if (ctx.measureText(test).width > maxWidth && line.length > 0) {
+      lines++;
+      line = chars[i];
+    } else {
+      line = test;
+    }
+  }
+  return lines * lineHeight;
+}
+
+function mulberry32(seed) {
+  let a = seed;
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
