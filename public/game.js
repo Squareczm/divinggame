@@ -882,7 +882,7 @@ async function generateShareCard() {
     const monoFont = '"Silkscreen","Press Start 2P","Courier New",monospace';
     const M = 56; // 外边距
 
-    // ===== 背景 =====
+    // ===== 背景（干净深海渐变，不加网格和气泡）=====
     const bg = ctx.createRadialGradient(W/2, 380, 0, W/2, H/2, H * 0.85);
     bg.addColorStop(0, '#122e48');
     bg.addColorStop(0.4, '#0a1b2e');
@@ -890,30 +890,11 @@ async function generateShareCard() {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // 细网格
-    ctx.fillStyle = 'rgba(245,196,107,0.03)';
-    for (let x = 0; x < W; x += 20) ctx.fillRect(x, 0, 1, H);
-    for (let y = 0; y < H; y += 20) ctx.fillRect(0, y, W, 1);
-
-    // 背景像素气泡点缀（确定性分布）
-    const rng = mulberry32(7919);
-    for (let i = 0; i < 70; i++) {
-      const bx = Math.floor(rng() * W);
-      const by = Math.floor(rng() * H);
-      const sz = 2 + Math.floor(rng() * 4);
-      ctx.fillStyle = `rgba(230,238,245,${0.18 + rng() * 0.22})`;
-      ctx.fillRect(bx, by, sz, sz);
-    }
-
-    // 顶/底金光
-    const tgl = ctx.createLinearGradient(0, 0, 0, 280);
-    tgl.addColorStop(0, 'rgba(245,196,107,0.18)');
+    // 顶部金光微晕（不影响文字）
+    const tgl = ctx.createLinearGradient(0, 0, 0, 240);
+    tgl.addColorStop(0, 'rgba(245,196,107,0.14)');
     tgl.addColorStop(1, 'transparent');
-    ctx.fillStyle = tgl; ctx.fillRect(0, 0, W, 280);
-    const bgl = ctx.createLinearGradient(0, H - 280, 0, H);
-    bgl.addColorStop(0, 'transparent');
-    bgl.addColorStop(1, 'rgba(128,212,192,0.12)');
-    ctx.fillStyle = bgl; ctx.fillRect(0, H - 280, W, 280);
+    ctx.fillStyle = tgl; ctx.fillRect(0, 0, W, 240);
 
     // ===== 像素边框（双层）=====
     function pxFrame(x, y, w, h, c1, c2, th=10) {
@@ -929,25 +910,11 @@ async function generateShareCard() {
     pxFrame(36, 36, W-72, H-72, '#f5c46b', '#a67d3c', 10);
     pxFrame(62, 62, W-124, H-124, '#2b4a6e', '#0a1628', 4);
 
-    // 四角星饰
+    // 四角简洁饰
     [[56,56],[W-72,56],[56,H-72],[W-72,H-72]].forEach(([x,y]) => {
       ctx.fillStyle = '#f5c46b'; ctx.fillRect(x, y, 16, 16);
       ctx.fillStyle = '#ffd485'; ctx.fillRect(x+3, y+3, 4, 4);
-      ctx.fillRect(x+9, y+9, 3, 3);
     });
-
-    // 顶/底 波浪像素装饰
-    ctx.fillStyle = '#f5c46b';
-    for (let x = 180, i = 0; x < W - 180; x += 32, i++) {
-      const yy = 190 + (i % 2 === 0 ? 0 : 6);
-      ctx.fillRect(x, yy, 22, 2);
-      ctx.fillRect(x + 5, yy + 3, 12, 2);
-    }
-    for (let x = 180, i = 0; x < W - 180; x += 32, i++) {
-      const yy = H - 210 + (i % 2 === 0 ? 0 : 6);
-      ctx.fillRect(x, yy, 22, 2);
-      ctx.fillRect(x + 5, yy + 3, 12, 2);
-    }
 
     // ===== 顶部品牌 =====
     ctx.textAlign = 'center';
@@ -975,28 +942,18 @@ async function generateShareCard() {
     ctx.font = 'bold 22px ' + monoFont;
     ctx.fillText('DEEP  DIVER  SIMULATOR', W/2, 298);
 
-    // ===== 潜水员 + 海洋生物点缀 =====
+    // ===== 潜水员 + 两个主装饰（左下珊瑚、右上鱼群）=====
     const diverSvg = PIXELS.diver.replace(/width="44"/, 'width="240"').replace(/height="48"/, 'height="262"');
     try { const img = await loadImage(svgToDataUrl(diverSvg)); ctx.drawImage(img, W/2 - 120, 345, 240, 262); } catch (e) {}
     try {
       const coralImg = await loadImage(svgToDataUrl(
-        PIXELS.coral.replace(/width="64"/, 'width="170"').replace(/height="32"/, 'height="86"')));
-      ctx.drawImage(coralImg, 80, 515, 170, 86);
+        PIXELS.coral.replace(/width="64"/, 'width="160"').replace(/height="32"/, 'height="80"')));
+      ctx.drawImage(coralImg, 90, 530, 160, 80);
     } catch (e) {}
     try {
       const fishImg = await loadImage(svgToDataUrl(
-        PIXELS.fish_school.replace(/width="80"/, 'width="210"').replace(/height="32"/, 'height="86"')));
-      ctx.drawImage(fishImg, W - 290, 380, 210, 86);
-    } catch (e) {}
-    try {
-      const jellyImg = await loadImage(svgToDataUrl(
-        PIXELS.jelly.replace(/width="40"/, 'width="84"').replace(/height="44"/, 'height="92"')));
-      ctx.drawImage(jellyImg, W - 170, 520, 84, 92);
-    } catch (e) {}
-    try {
-      const bubImg = await loadImage(svgToDataUrl(
-        PIXELS.bubbleart.replace(/width="24"/, 'width="62"').replace(/height="32"/, 'height="82"')));
-      ctx.drawImage(bubImg, 70, 380, 62, 82);
+        PIXELS.fish_school.replace(/width="80"/, 'width="190"').replace(/height="32"/, 'height="76"')));
+      ctx.drawImage(fishImg, W - 280, 400, 190, 76);
     } catch (e) {}
 
     // ===== 结局大字 =====
